@@ -116,7 +116,10 @@ button,input,select,textarea{font:inherit;color:inherit}
 @media (max-width:760px){.ed-grid{grid-template-columns:1fr 1fr}.field.title{grid-column:1 / -1}}
 
 /* board */
-.board{background:var(--surface);border:1px solid var(--hair);border-radius:8px;overflow-x:auto;overflow-y:hidden;position:relative}
+.board{background:var(--surface);border:1px solid var(--hair);border-radius:8px;overflow:auto;position:relative}
+.row.hdr{position:sticky;top:0;z-index:4}
+.row.hdr .label{z-index:5}
+.row.hdr .tl{background-color:var(--surface)}
 .row{display:flex;width:max-content;min-width:100%;border-top:1px solid var(--hair-2)}
 .row.hdr{border-top:0}
 .label{position:sticky;left:0;z-index:2;flex:0 0 var(--labelw);width:var(--labelw);background:var(--surface);border-right:1px solid var(--hair);padding:8px 10px;display:grid;grid-template-columns:var(--lgrid);column-gap:10px;align-items:center;cursor:pointer;min-width:0}
@@ -411,6 +414,7 @@ function layoutCols(){
 function renderBoard(all){
   const board = $('#board');
   const labelW = layoutCols();
+  board.style.maxHeight = Math.max(260, window.innerHeight - board.getBoundingClientRect().top - 16) + 'px';
   const avail = board.clientWidth - labelW - 2;
   const colW = Math.max(18, Math.floor(avail / DAYS));
   board.style.setProperty('--colw', colW+'px');
