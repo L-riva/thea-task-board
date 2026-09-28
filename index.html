@@ -152,15 +152,17 @@ button,input,select,textarea{font:inherit;color:inherit}
 .pill.s-done{border-color:var(--good);color:var(--good)}
 
 .tl{position:relative;flex:0 0 auto;width:calc(var(--colw) * var(--days, 98));min-height:46px;align-self:stretch}
-.row.hdr .tl{height:46px;border-bottom:1px solid var(--hair)}
-.wk{position:absolute;top:0;height:22px;line-height:22px;padding-left:6px;font-family:var(--mono);font-size:11px;color:var(--ink-2);border-left:1px solid var(--hair);white-space:nowrap;overflow:hidden}
-.wk.m{color:var(--ink);font-weight:500}
-.dy{position:absolute;top:24px;height:20px;line-height:20px;text-align:center;font-family:var(--mono);font-size:10.5px;color:var(--ink-3)}
-.dy.we{color:var(--hair)}
-.dy.now{color:var(--accent);font-weight:500}
-.dy.now::after{content:"";position:absolute;left:50%;bottom:0;transform:translateX(-50%);width:4px;height:4px;border-radius:50%;background:var(--accent)}
+.row.hdr .tl{height:50px;border-bottom:1px solid var(--hair)}
+.mo{position:absolute;top:0;height:16px;line-height:16px;padding-left:5px;font-family:var(--mono);font-size:10.5px;font-weight:500;color:var(--ink);border-left:1px solid var(--hair);white-space:nowrap;overflow:hidden}
+.wd,.dy{position:absolute;text-align:center;font-family:var(--mono);color:var(--ink-3);white-space:nowrap;overflow:hidden}
+.wd{top:17px;height:16px;line-height:16px;font-size:9px;letter-spacing:-.02em}
+.dy{top:33px;height:16px;line-height:16px;font-size:10px;color:var(--ink-2)}
+.wd.m,.dy.m{border-left:1px solid var(--hair-2)}
+.wd.we,.dy.we{color:var(--hair)}
+.dy.now{color:var(--accent);font-weight:600}
+.dy.now::after{content:"";position:absolute;left:50%;bottom:0;transform:translateX(-50%);width:4px;height:3px;border-radius:2px 2px 0 0;background:var(--accent)}
 .today{position:absolute;top:0;bottom:0;width:2px;background:var(--accent);opacity:.85;pointer-events:none;z-index:1}
-.row.hdr .today{top:46px}
+.row.hdr .today{top:50px}
 .bar{position:absolute;top:50%;transform:translateY(-50%);height:24px;line-height:24px;border-radius:4px;font-size:12px;padding:0 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;z-index:1}
 .bar.s-todo{background:var(--todo);color:var(--todo-ink)}
 .bar.s-doing{background:var(--doing);color:var(--doing-ink)}
@@ -252,7 +254,7 @@ button,input,select,textarea{font:inherit;color:inherit}
     <div class="ed-head"><strong id="ed-label">New task</strong><span id="ed-sub"></span></div>
     <div class="ed-grid">
       <label class="field title">Task<input id="f-title" maxlength="140" autocomplete="off"></label>
-      <label class="field title">Objective<input id="f-objective" maxlength="200" autocomplete="off" placeholder=""></label>
+      <label class="field title">Objective<input id="f-objective" maxlength="200" autocomplete="off"></label>
       <label class="field">Type<select id="f-type"><option value="">None</option></select></label>
       <label class="field">Owner<input id="f-owner" list="owners" maxlength="40" autocomplete="off"></label>
       <label class="field">Status<select id="f-status">
@@ -295,9 +297,10 @@ button,input,select,textarea{font:inherit;color:inherit}
 <script>
 (function(){
 'use strict';
-const BACK = 7, FWD = 13 * 7, DAYS = BACK + FWD;  
+const BACK = 7, FWD = 13 * 7, DAYS = BACK + FWD;
 const STATUS = {todo:'To do', doing:'In progress', blocked:'Blocked', done:'Done'};
 const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const DOW = ['Su','Mo','Tu','We','Th','Fr','Sa'];
 const $ = s => document.querySelector(s);
 
 // ---- dates (local calendar days, ISO strings) ----
@@ -454,14 +457,17 @@ function renderBoard(all){
           `<div class="tl" style="width:${tlW}px;background-image:${bg}">`;
   let i = 0;
   while(i < DAYS){
-    let j = i+1; while(j < DAYS && parse(days[j]).getDay() !== 1) j++;
-    const isMon = parse(days[i]).getDay() === 1;
-    h += `<div class="wk${isMon?' m':''}" style="left:${i*colW}px;width:${(j-i)*colW}px">${short(days[i])}</div>`;
+    const m = parse(days[i]).getMonth();
+    let j = i+1; while(j < DAYS && parse(days[j]).getMonth() === m) j++;
+    const w = (j-i)*colW;
+    h += `<div class="mo" style="left:${i*colW}px;width:${w}px">${w >= 30 ? MON[m] : ''}</div>`;
     i = j;
   }
   days.forEach((d,k)=>{
-    const dt = parse(d), we = dt.getDay()===0 || dt.getDay()===6;
-    h += `<div class="dy${we?' we':''}${d===today?' now':''}" style="left:${k*colW}px;width:${colW}px">${colW>=22 ? dt.getDate() : ''}</div>`;
+    const dt = parse(d), dow = dt.getDay(), we = dow===0 || dow===6, mon = dow===1;
+    const cls = `${we?' we':''}${mon?' m':''}`;
+    h += `<div class="wd${cls}" style="left:${k*colW}px;width:${colW}px">${DOW[dow]}</div>` +
+         `<div class="dy${cls}${d===today?' now':''}" style="left:${k*colW}px;width:${colW}px">${dt.getDate()}</div>`;
   });
   h += `${todayLine}</div></div>`;
 
