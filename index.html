@@ -99,7 +99,8 @@ button,input,select,textarea{font:inherit;color:inherit}
 .ed-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
 .ed-head strong{font-weight:600;font-size:14px}
 .ed-head span{font-size:12px;color:var(--ink-3)}
-.ed-grid{display:grid;grid-template-columns:2fr 2fr 1fr 1fr 1fr 1fr 1fr;gap:10px 12px}
+.ed-grid{display:grid;grid-template-columns:2fr 2fr 1fr 1fr 1fr 1fr 1fr 1fr;gap:10px 12px}
+.ed-hint{font-size:12px;color:var(--ink-3)}
 .sel{font-size:12px;padding:3px 6px;border:1px solid var(--hair);border-radius:6px;background:var(--surface);color:var(--ink)}
 .row.grp{border-top:1px solid var(--hair);background:var(--page)}
 .row.grp .label{display:flex;background:var(--page);font-size:12px;font-weight:600;color:var(--ink);align-items:center;padding:6px 10px;gap:6px}
@@ -172,6 +173,8 @@ button,input,select,textarea{font:inherit;color:inherit}
 .bar.s-blocked{background:var(--blocked);color:var(--blocked-ink);background-image:repeating-linear-gradient(135deg,rgba(0,0,0,.14) 0 4px,transparent 4px 9px)}
 .bar.s-done{background:var(--done);color:var(--done-ink)}
 .bar.overdue{box-shadow:inset 0 0 0 2px var(--critical)}
+.bar.occ{padding:0;text-align:center;min-width:6px}
+.bar.occ.past{opacity:.45}
 .bar.clip-l{border-top-left-radius:0;border-bottom-left-radius:0}
 .bar.clip-r{border-top-right-radius:0;border-bottom-right-radius:0}
 .bar:hover{filter:brightness(1.06)}
@@ -258,7 +261,7 @@ button,input,select,textarea{font:inherit;color:inherit}
     <div class="ed-grid">
       <label class="field title">Task<input id="f-title" maxlength="140" autocomplete="off"></label>
       <label class="field title">Objective<input id="f-objective" maxlength="200" autocomplete="off"></label>
-      <label class="field">Type<select id="f-type"><option value="">None</option></select></label>
+      <label class="field">Type<input id="f-type" list="types-list" maxlength="40" autocomplete="off"></label>
       <label class="field">Owner<input id="f-owner" list="owners" maxlength="40" autocomplete="off"></label>
       <label class="field">Status<select id="f-status">
         <option value="todo">To do</option>
@@ -268,9 +271,17 @@ button,input,select,textarea{font:inherit;color:inherit}
       </select></label>
       <label class="field">Start<input type="date" id="f-start"></label>
       <label class="field">Due<input type="date" id="f-due"></label>
+      <label class="field">Repeat<select id="f-repeat">
+        <option value="">No</option>
+        <option value="weekly">Every week</option>
+        <option value="biweekly">Every 2 weeks</option>
+        <option value="monthly">Every month</option>
+      </select></label>
       <label class="field wide">Notes<input id="f-notes" maxlength="300" autocomplete="off"></label>
     </div>
+    <div class="ed-hint" id="ed-hint" hidden></div>
     <datalist id="owners"></datalist>
+    <datalist id="types-list"></datalist>
     <div class="ed-actions">
       <button class="btn primary" id="b-save">Save</button>
       <button class="btn" id="b-cancel">Cancel</button>
@@ -333,18 +344,43 @@ try {
 $('#hide-done').checked = ui.hideDone;
 $('#group-by').value = ui.groupBy;
 const TYPES = (window.TTB_CONFIG && Array.isArray(window.TTB_CONFIG.types)) ? window.TTB_CONFIG.types.map(String) : [];
-$('#f-type').innerHTML = '<option value="">None</option>' + TYPES.map(t => `<option value="${esc(t)}">${esc(t)}</option>`).join('');
 function remember(k, v){ try { localStorage.setItem('ttb.' + k, typeof v === 'string' ? v : JSON.stringify(v)); } catch(_){} }
 
 // ---- helpers ----
 function fromRow(r){
-  return { id:r.id, position:(typeof r.position === 'number' ? r.position : null), title:r.title, objective:r.objective || '', type:r.type || '', owner:r.owner || '', status:r.status, start:r.start_date, due:r.due_date, notes:r.notes || '', updatedAt:r.updated_at, updatedBy:r.updated_by || '' };
+  return { id:r.id, position:(typeof r.position === 'number' ? r.position : null), title:r.title, objective:r.objective || '', repeat:r.repeat || '', type:r.type || '', owner:r.owner || '', status:r.status, start:r.start_date, due:r.due_date, notes:r.notes || '', updatedAt:r.updated_at, updatedBy:r.updated_by || '' };
 }
 function norm(t){
   const s = STATUS[t.status] ? t.status : 'todo';
   const start = parse(t.start) ? t.start.slice(0,10) : (parse(t.due) ? t.due.slice(0,10) : today);
   const due = parse(t.due) && t.due.slice(0,10) >= start ? t.due.slice(0,10) : start;
-  return {...t, status:s, start, due, title:t.title || '(untitled)', objective:t.objective || '', type:t.type || '', owner:t.owner || '', notes:t.notes || ''};
+  const repeat = ['weekly','biweekly','monthly'].includes(t.repeat) ? t.repeat : '';
+  const out = {...t, status:s, start, due, repeat, title:t.title || '(untitled)', objective:t.objective || '', type:t.type || '', owner:t.owner || '', notes:t.notes || ''};
+  if(repeat){ out.occ = occurrences(start, due, repeat); out.next = out.occ.find(d => d >= today) || null; }
+  return out;
+}
+const REPEAT = {weekly:'Every week', biweekly:'Every 2 weeks', monthly:'Every month'};
+const DOWL = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+function occurrences(start, end, repeat){
+  // dates from start to end (inclusive) on the pattern; capped at 400 entries
+  const out = []; const s0 = parse(start); if(!s0) return out;
+  if(repeat === 'monthly'){
+    const dom = s0.getDate();
+    for(let k = 0; k < 400; k++){
+      const d = new Date(s0.getFullYear(), s0.getMonth() + k, dom);
+      if(d.getDate() !== dom) continue;            // month too short (e.g. 31st): skip
+      const iso = fmt(d); if(iso > end) break; out.push(iso);
+    }
+  } else {
+    const step = repeat === 'biweekly' ? 14 : 7;
+    for(let k = 0; k < 400; k++){ const iso = addDays(start, k * step); if(iso > end) break; out.push(iso); }
+  }
+  return out;
+}
+function repeatText(t){
+  if(!t.repeat) return '';
+  const dow = DOWL[parse(t.start).getDay()];
+  return t.repeat === 'monthly' ? `Every month on the ${parse(t.start).getDate()}` : `${REPEAT[t.repeat]} on ${dow}s`;
 }
 function setSync(state, text){
   const el = $('#sync');
@@ -371,7 +407,7 @@ function renderSummary(all){
   const blocked = open.filter(t=>t.status==='blocked').length;
   const overdue = open.filter(t=>t.due < today).length;
   const weekEnd = addDays(today,6);
-  const dueWeek = open.filter(t=>t.due >= today && t.due <= weekEnd).length;
+  const dueWeek = open.filter(t=>{ const d = t.repeat ? t.next : t.due; return d && d >= today && d <= weekEnd; }).length;
   $('#sum').innerHTML =
     `<span><b>${open.length}</b>open</span>` +
     `<span><b>${doing}</b>in progress</span>` +
@@ -391,6 +427,8 @@ function renderFilters(all){
   $('#owners').innerHTML = owners.map(o=>`<option value="${esc(o)}"></option>`).join('');
   const used = new Set(all.map(t=>t.type).filter(Boolean));
   const types = TYPES.filter(t => used.has(t)).concat([...used].filter(t => !TYPES.includes(t)).sort());
+  const known = TYPES.concat([...used].filter(t => !TYPES.includes(t)).sort());
+  $('#types-list').innerHTML = known.map(t=>`<option value="${esc(t)}"></option>`).join('');
   if(ui.type && !types.includes(ui.type)) ui.type = '';
   const tc = $('#types-chips');
   tc.innerHTML = types.length
@@ -495,7 +533,15 @@ function renderBoard(all){
     const overdue = !done && t.due < today;
     const si = diff(winStart, t.start), ei = diff(winStart, t.due);
     let barHtml = '';
-    if(ei < 0){
+    if(t.repeat){
+      const inWin = t.occ.filter(d => d >= winStart && d <= days[DAYS-1]);
+      if(!inWin.length){
+        barHtml = ei < 0 ? `<span class="edge l" data-id="${esc(t.id)}">← ended ${short(t.due)}</span>`
+                : si >= DAYS ? `<span class="edge r" data-id="${esc(t.id)}">starts ${short(t.start)} →</span>` : '';
+      } else {
+        barHtml = inWin.map(d => { const k = diff(winStart, d); return `<div class="bar occ s-${t.status}${d < today ? ' past' : ''}${overdue?' overdue':''}" style="left:${k*colW+1}px;width:${colW-2}px" data-id="${esc(t.id)}"></div>`; }).join('');
+      }
+    } else if(ei < 0){
       barHtml = `<span class="edge l" data-id="${esc(t.id)}">← ended ${short(t.due)}</span>`;
     } else if(si >= DAYS){
       barHtml = `<span class="edge r" data-id="${esc(t.id)}">starts ${short(t.start)} →</span>`;
@@ -520,7 +566,16 @@ function renderBoard(all){
 
 // ---- editor ----
 const ed = $('#editor');
-const F = { title:$('#f-title'), objective:$('#f-objective'), type:$('#f-type'), owner:$('#f-owner'), status:$('#f-status'), start:$('#f-start'), due:$('#f-due'), notes:$('#f-notes') };
+const F = { title:$('#f-title'), objective:$('#f-objective'), type:$('#f-type'), owner:$('#f-owner'), status:$('#f-status'), start:$('#f-start'), due:$('#f-due'), repeat:$('#f-repeat'), notes:$('#f-notes') };
+function updateHint(){
+  const r = F.repeat.value, h = $('#ed-hint');
+  if(!r || !parse(F.start.value)){ h.hidden = true; return; }
+  const t = { repeat:r, start:F.start.value };
+  const occ = occurrences(F.start.value, parse(F.due.value) ? F.due.value : F.start.value, r);
+  h.textContent = `${repeatText(t)}, from ${short(F.start.value)} until ${short(F.due.value || F.start.value)}: ${occ.length} occurrence${occ.length===1?'':'s'}. Start = first one, Due = last one.`;
+  h.hidden = false;
+}
+['change','input'].forEach(ev => { F.repeat.addEventListener(ev, updateHint); F.start.addEventListener(ev, updateHint); F.due.addEventListener(ev, updateHint); });
 function openEditor(id){
   const t = id ? tasks.map(norm).find(x=>x.id===id) : null;
   editingId = t ? t.id : null; isNew = !t;
@@ -528,13 +583,14 @@ function openEditor(id){
   $('#ed-sub').textContent = t && t.updatedAt ? `last saved ${new Date(t.updatedAt).toLocaleString()}${t.updatedBy ? ' by ' + t.updatedBy : ''}` : '';
   F.title.value = t ? t.title : '';
   F.objective.value = t ? t.objective : '';
-  if(t && t.type && !TYPES.includes(t.type)) F.type.insertAdjacentHTML('beforeend', `<option value="${esc(t.type)}">${esc(t.type)}</option>`);
   F.type.value = t ? t.type : (ui.type || '');
   F.owner.value = t ? t.owner : (ui.owner || ui.lastOwner || '');
   F.status.value = t ? t.status : 'todo';
   F.start.value = t ? t.start : today;
   F.due.value = t ? t.due : addDays(today, 7);
+  F.repeat.value = t ? t.repeat : '';
   F.notes.value = t ? t.notes : '';
+  updateHint();
   $('#b-del').hidden = isNew; $('#b-up').hidden = isNew; $('#b-down').hidden = isNew;
   $('#b-del').classList.remove('armed'); $('#b-del').textContent = 'Delete';
   $('#ed-err').textContent = '';
@@ -566,7 +622,7 @@ async function saveTask(){
   let due = parse(F.due.value) ? F.due.value : start;
   if(due < start) due = start;
   const owner = F.owner.value.trim();
-  const row = { title, objective:F.objective.value.trim(), type:F.type.value, owner, status:F.status.value, start_date:start, due_date:due, notes:F.notes.value.trim(), updated_at:new Date().toISOString(), updated_by:meLabel() };
+  const row = { title, objective:F.objective.value.trim(), repeat:F.repeat.value, type:F.type.value.trim(), owner, status:F.status.value, start_date:start, due_date:due, notes:F.notes.value.trim(), updated_at:new Date().toISOString(), updated_by:meLabel() };
   const ok = await writeTask(async () => {
     if(isNew) must(await sb.from('tasks').insert({...row, position: maxPos() + 1}));
     else must(await sb.from('tasks').update(row).eq('id', editingId));
@@ -783,8 +839,11 @@ $('#board').addEventListener('mouseover', e => {
   const t = tasks.map(norm).find(x=>x.id===bar.dataset.id); if(!t) return;
   const n = diff(t.start, t.due) + 1;
   const overdue = t.status!=='done' && t.due < today;
+  const when = t.repeat
+    ? `${esc(repeatText(t))} · ${short(t.start)} → ${short(t.due)} · ${t.occ.length}×${t.next ? ' · next ' + short(t.next) : ''}`
+    : `${short(t.start)} → ${short(t.due)} · ${n} day${n===1?'':'s'}`;
   tip.innerHTML = `<b>${esc(t.title)}</b>${t.objective?'<br>'+esc(t.objective):''}<br>${esc(STATUS[t.status])}${t.type?' · '+esc(t.type):''}${t.owner?' · '+esc(t.owner):''}${overdue?' · <b>overdue '+diff(t.due, today)+'d</b>':''}<br>` +
-    `<span class="mono">${short(t.start)} → ${short(t.due)} · ${n} day${n===1?'':'s'}</span>` +
+    `<span class="mono">${when}</span>` +
     (t.notes ? `<br>${esc(t.notes)}` : '');
   tip.hidden = false;
   const r = bar.getBoundingClientRect();
