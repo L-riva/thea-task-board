@@ -22,7 +22,8 @@
   --focus:#2a78d6;
   --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
   --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
-  --labelw:280px; --colw:24px;
+  --labelw:640px; --colw:24px;
+  --lgrid:18px minmax(0,1.3fr) minmax(0,1.2fr) 108px 96px;
 }
 @media (prefers-color-scheme: dark){
   :root{
@@ -98,15 +99,14 @@ button,input,select,textarea{font:inherit;color:inherit}
 .ed-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
 .ed-head strong{font-weight:600;font-size:14px}
 .ed-head span{font-size:12px;color:var(--ink-3)}
-.ed-grid{display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr;gap:10px 12px}
+.ed-grid{display:grid;grid-template-columns:2fr 2fr 1fr 1fr 1fr 1fr 1fr;gap:10px 12px}
 .sel{font-size:12px;padding:3px 6px;border:1px solid var(--hair);border-radius:6px;background:var(--surface);color:var(--ink)}
 .row.grp{border-top:1px solid var(--hair);background:var(--page)}
-.row.grp .label{background:var(--page);font-size:12px;font-weight:600;color:var(--ink);align-items:center;padding:6px 10px;gap:6px}
+.row.grp .label{display:flex;background:var(--page);font-size:12px;font-weight:600;color:var(--ink);align-items:center;padding:6px 10px;gap:6px}
 .row.grp .label .cnt{font-family:var(--mono);font-weight:400;color:var(--ink-3);margin-left:auto}
 .row.grp .label .car{display:inline-block;width:0;height:0;border-left:5px solid var(--ink-3);border-top:4px solid transparent;border-bottom:4px solid transparent;transition:transform .12s}
 .row.grp.open .label .car{transform:rotate(90deg)}
 .row.grp .tl{min-height:0;height:30px}
-.meta .typ{font-size:10.5px;padding:1px 6px;border-radius:4px;background:var(--accent-soft);color:var(--ink-2)}
 .field{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--ink-2);min-width:0}
 .field.wide{grid-column:1 / -1}
 .field input,.field select{font-size:14px;padding:7px 9px;border:1px solid var(--hair);border-radius:6px;background:var(--surface);color:var(--ink);width:100%;min-width:0}
@@ -119,27 +119,27 @@ button,input,select,textarea{font:inherit;color:inherit}
 .board{background:var(--surface);border:1px solid var(--hair);border-radius:8px;overflow-x:auto;overflow-y:hidden;position:relative}
 .row{display:flex;width:max-content;min-width:100%;border-top:1px solid var(--hair-2)}
 .row.hdr{border-top:0}
-.label{position:sticky;left:0;z-index:2;flex:0 0 var(--labelw);width:var(--labelw);background:var(--surface);border-right:1px solid var(--hair);padding:8px 10px;display:flex;gap:9px;align-items:flex-start;cursor:pointer;min-width:0}
+.label{position:sticky;left:0;z-index:2;flex:0 0 var(--labelw);width:var(--labelw);background:var(--surface);border-right:1px solid var(--hair);padding:8px 10px;display:grid;grid-template-columns:var(--lgrid);column-gap:10px;align-items:center;cursor:pointer;min-width:0}
 .label:hover{background:var(--accent-soft)}
-.row.hdr .label{cursor:default;align-items:flex-end;justify-content:space-between;padding-bottom:6px;font-size:12px;color:var(--ink-2)}
+.label > span{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row.hdr .label{cursor:default;align-items:end;padding-bottom:6px;font-size:11px;letter-spacing:.03em;text-transform:uppercase;color:var(--ink-3)}
 .row.hdr .label:hover{background:var(--surface)}
-.row.hdr .label b{font-weight:500;color:var(--ink)}
-.row.hdr .label .cnt{font-family:var(--mono);color:var(--ink-3)}
-.chk{margin:3px 0 0;flex:0 0 auto;accent-color:var(--accent);width:15px;height:15px;cursor:pointer}
-.lt{min-width:0;flex:1 1 auto;display:flex;flex-direction:column;gap:3px}
-.ttl{font-size:13.5px;font-weight:500;line-height:1.3;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.row.hdr .label .cnt{font-family:var(--mono);text-transform:none;letter-spacing:0;color:var(--ink-3);text-align:right}
+.chk{margin:0;accent-color:var(--accent);width:15px;height:15px;cursor:pointer}
+.ttl{font-size:13.5px;font-weight:500;color:var(--ink)}
 .is-done .ttl{text-decoration:line-through;color:var(--ink-3);font-weight:400}
-.meta{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;font-size:11.5px;color:var(--ink-2)}
-.meta .own{font-weight:500;color:var(--ink)}
-.meta .due{font-family:var(--mono);color:var(--ink-3)}
-.meta .due.late{color:var(--critical);font-weight:500}
+.obj{font-size:12.5px;color:var(--ink-2)}
+.own{font-size:12.5px;font-weight:500;color:var(--ink)}
+.typ{font-size:11px;padding:1px 7px;border-radius:4px;background:var(--accent-soft);color:var(--ink-2);justify-self:start;max-width:100%}
+.is-done .obj,.is-done .own{color:var(--ink-3)}
+.typ:empty{background:transparent;padding:0}
 .pill{font-size:10.5px;padding:1px 7px;border-radius:999px;border:1px solid;letter-spacing:.02em;line-height:1.5;white-space:nowrap}
 .pill.s-todo{border-color:var(--ink-3);color:var(--ink-2)}
 .pill.s-doing{border-color:var(--doing);color:var(--doing)}
 .pill.s-blocked{border-color:var(--blocked);color:var(--blocked-ink);background:var(--blocked)}
 .pill.s-done{border-color:var(--good);color:var(--good)}
 
-.tl{position:relative;flex:0 0 auto;width:calc(var(--colw) * 49);min-height:46px;align-self:stretch}
+.tl{position:relative;flex:0 0 auto;width:calc(var(--colw) * var(--days, 98));min-height:46px;align-self:stretch}
 .row.hdr .tl{height:46px;border-bottom:1px solid var(--hair)}
 .wk{position:absolute;top:0;height:22px;line-height:22px;padding-left:6px;font-family:var(--mono);font-size:11px;color:var(--ink-2);border-left:1px solid var(--hair);white-space:nowrap;overflow:hidden}
 .wk.m{color:var(--ink);font-weight:500}
@@ -175,8 +175,13 @@ button,input,select,textarea{font:inherit;color:inherit}
 .tip b{font-weight:600}
 .tip .mono{font-family:var(--mono);opacity:.85}
 
+@media (max-width:900px){
+  :root{--labelw:420px;--lgrid:18px minmax(0,1.4fr) minmax(0,1fr) 86px}
+  .label .typ,.row.hdr .label .h-type{display:none}
+}
 @media (max-width:560px){
-  :root{--labelw:176px}
+  :root{--labelw:230px;--lgrid:18px minmax(0,1fr) 64px}
+  .label .obj,.row.hdr .label .h-obj{display:none}
   .ttl{font-size:13px}
   .head h1{font-size:18px}
 }
@@ -240,7 +245,8 @@ button,input,select,textarea{font:inherit;color:inherit}
   <section class="editor" id="editor" hidden>
     <div class="ed-head"><strong id="ed-label">New task</strong><span id="ed-sub"></span></div>
     <div class="ed-grid">
-      <label class="field title">Title<input id="f-title" maxlength="140" autocomplete="off"></label>
+      <label class="field title">Task<input id="f-title" maxlength="140" autocomplete="off"></label>
+      <label class="field title">Objective<input id="f-objective" maxlength="200" autocomplete="off" placeholder="What done looks like"></label>
       <label class="field">Type<select id="f-type"><option value="">None</option></select></label>
       <label class="field">Owner<input id="f-owner" list="owners" maxlength="40" autocomplete="off"></label>
       <label class="field">Status<select id="f-status">
@@ -272,6 +278,7 @@ button,input,select,textarea{font:inherit;color:inherit}
     <span><i class="sw s-done"></i>Done</span>
     <span><i class="sw overdue"></i>Overdue</span>
     <span><i class="sw now-line"></i>Today</span>
+    <span>Weekends shaded. Click a task to edit it. Tick the box to mark it done.</span>
   </div>
 </div>
 <div class="tip" id="tip" hidden></div>
@@ -281,7 +288,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 <script>
 (function(){
 'use strict';
-const DAYS = 49, BACK = 7;
+const BACK = 7, FWD = 13 * 7, DAYS = BACK + FWD;   // 1 week back, 13 weeks ahead, rolling
 const STATUS = {todo:'To do', doing:'In progress', blocked:'Blocked', done:'Done'};
 const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const $ = s => document.querySelector(s);
@@ -316,13 +323,13 @@ function remember(k, v){ try { localStorage.setItem('ttb.' + k, typeof v === 'st
 
 // ---- helpers ----
 function fromRow(r){
-  return { id:r.id, title:r.title, type:r.type || '', owner:r.owner || '', status:r.status, start:r.start_date, due:r.due_date, notes:r.notes || '', updatedAt:r.updated_at, updatedBy:r.updated_by || '' };
+  return { id:r.id, title:r.title, objective:r.objective || '', type:r.type || '', owner:r.owner || '', status:r.status, start:r.start_date, due:r.due_date, notes:r.notes || '', updatedAt:r.updated_at, updatedBy:r.updated_by || '' };
 }
 function norm(t){
   const s = STATUS[t.status] ? t.status : 'todo';
   const start = parse(t.start) ? t.start.slice(0,10) : (parse(t.due) ? t.due.slice(0,10) : today);
   const due = parse(t.due) && t.due.slice(0,10) >= start ? t.due.slice(0,10) : start;
-  return {...t, status:s, start, due, title:t.title || '(untitled)', type:t.type || '', owner:t.owner || '', notes:t.notes || ''};
+  return {...t, status:s, start, due, title:t.title || '(untitled)', objective:t.objective || '', type:t.type || '', owner:t.owner || '', notes:t.notes || ''};
 }
 function setSync(state, text){
   const el = $('#sync');
@@ -343,7 +350,7 @@ function render(){
 }
 
 function renderSummary(all){
-  $('#win').textContent = `${short(winStart)} – ${short(addDays(winStart, DAYS-1))} · 7 weeks, rolling`;
+  $('#win').textContent = `${short(winStart)} – ${short(addDays(winStart, DAYS-1))} · 1 week back, ${FWD/7} ahead, rolling`;
   const open = all.filter(t=>t.status!=='done');
   const doing = open.filter(t=>t.status==='doing').length;
   const blocked = open.filter(t=>t.status==='blocked').length;
@@ -379,11 +386,12 @@ function renderFilters(all){
 
 function renderBoard(all){
   const board = $('#board');
-  const labelW = window.innerWidth < 560 ? 176 : 280;
+  const labelW = window.innerWidth < 560 ? 230 : window.innerWidth < 900 ? 420 : 640;
   const avail = board.clientWidth - labelW - 2;
   const colW = Math.max(18, Math.floor(avail / DAYS));
   board.style.setProperty('--colw', colW+'px');
   board.style.setProperty('--labelw', labelW+'px');
+  board.style.setProperty('--days', String(DAYS));
   const tlW = colW * DAYS;
   const tIdx = diff(winStart, today);
 
@@ -412,7 +420,7 @@ function renderBoard(all){
     groups = keys.map(k => ({ key:k, label: k || (gb==='type' ? 'No type' : 'No owner'), tasks: visible.filter(t => keyOf(t)===k) }));
   } else groups = [{ key:null, label:'', tasks:visible }];
 
-  let h = `<div class="row hdr"><div class="label"><b>Task</b><span class="cnt">${visible.length} of ${all.length}</span></div>` +
+  let h = `<div class="row hdr"><div class="label"><span></span><span>Task <span class="cnt">${visible.length} of ${all.length}</span></span><span class="h-obj">Objective</span><span class="h-type">Type</span><span>Owner</span></div>` +
           `<div class="tl" style="width:${tlW}px;background-image:${bg}">`;
   let i = 0;
   while(i < DAYS){
@@ -458,14 +466,12 @@ function renderBoard(all){
       const label = width >= 70 ? esc((clipL?'← ':'') + t.title + (clipR?' →':'')) : '';
       barHtml = `<div class="bar s-${t.status}${clipL?' clip-l':''}${clipR?' clip-r':''}${overdue?' overdue':''}" style="left:${left}px;width:${width}px" data-id="${esc(t.id)}">${label}</div>`;
     }
-    const dueTxt = overdue ? `overdue ${diff(t.due, today)}d` : done ? 'done' : `due ${short(t.due)}`;
     h += `<div class="row${done?' is-done':''}" data-id="${esc(t.id)}">` +
       `<div class="label"><input type="checkbox" class="chk" ${done?'checked':''} aria-label="Mark done: ${esc(t.title)}">` +
-      `<div class="lt"><div class="ttl">${esc(t.title)}</div>` +
-      `<div class="meta"><span class="pill s-${t.status}">${STATUS[t.status]}</span>` +
-      (t.type && gb !== 'type' ? `<span class="typ">${esc(t.type)}</span>` : '') +
-      (t.owner && gb !== 'owner' ? `<span class="own">${esc(t.owner)}</span>` : '') +
-      `<span class="due${overdue?' late':''}">${dueTxt}</span></div></div></div>` +
+      `<span class="ttl" title="${esc(t.title)}">${esc(t.title)}</span>` +
+      `<span class="obj" title="${esc(t.objective)}">${esc(t.objective)}</span>` +
+      `<span class="typ">${esc(t.type)}</span>` +
+      `<span class="own" title="${esc(t.owner)}">${esc(t.owner)}</span></div>` +
       `<div class="tl" style="width:${tlW}px;background-image:${bg}">${todayLine}${barHtml}</div></div>`;
   }
   }
@@ -474,13 +480,14 @@ function renderBoard(all){
 
 // ---- editor ----
 const ed = $('#editor');
-const F = { title:$('#f-title'), type:$('#f-type'), owner:$('#f-owner'), status:$('#f-status'), start:$('#f-start'), due:$('#f-due'), notes:$('#f-notes') };
+const F = { title:$('#f-title'), objective:$('#f-objective'), type:$('#f-type'), owner:$('#f-owner'), status:$('#f-status'), start:$('#f-start'), due:$('#f-due'), notes:$('#f-notes') };
 function openEditor(id){
   const t = id ? tasks.map(norm).find(x=>x.id===id) : null;
   editingId = t ? t.id : null; isNew = !t;
   $('#ed-label').textContent = t ? 'Edit task' : 'New task';
   $('#ed-sub').textContent = t && t.updatedAt ? `last saved ${new Date(t.updatedAt).toLocaleString()}${t.updatedBy ? ' by ' + t.updatedBy : ''}` : '';
   F.title.value = t ? t.title : '';
+  F.objective.value = t ? t.objective : '';
   if(t && t.type && !TYPES.includes(t.type)) F.type.insertAdjacentHTML('beforeend', `<option value="${esc(t.type)}">${esc(t.type)}</option>`);
   F.type.value = t ? t.type : (ui.type || '');
   F.owner.value = t ? t.owner : (ui.owner || ui.lastOwner || '');
@@ -519,7 +526,7 @@ async function saveTask(){
   let due = parse(F.due.value) ? F.due.value : start;
   if(due < start) due = start;
   const owner = F.owner.value.trim();
-  const row = { title, type:F.type.value, owner, status:F.status.value, start_date:start, due_date:due, notes:F.notes.value.trim(), updated_at:new Date().toISOString(), updated_by:meLabel() };
+  const row = { title, objective:F.objective.value.trim(), type:F.type.value, owner, status:F.status.value, start_date:start, due_date:due, notes:F.notes.value.trim(), updated_at:new Date().toISOString(), updated_by:meLabel() };
   const ok = await writeTask(async () => {
     if(isNew) must(await sb.from('tasks').insert(row));
     else must(await sb.from('tasks').update(row).eq('id', editingId));
@@ -646,7 +653,7 @@ $('#board').addEventListener('mouseover', e => {
   const t = tasks.map(norm).find(x=>x.id===bar.dataset.id); if(!t) return;
   const n = diff(t.start, t.due) + 1;
   const overdue = t.status!=='done' && t.due < today;
-  tip.innerHTML = `<b>${esc(t.title)}</b><br>${esc(STATUS[t.status])}${t.type?' · '+esc(t.type):''}${t.owner?' · '+esc(t.owner):''}${overdue?' · <b>overdue</b>':''}<br>` +
+  tip.innerHTML = `<b>${esc(t.title)}</b>${t.objective?'<br>'+esc(t.objective):''}<br>${esc(STATUS[t.status])}${t.type?' · '+esc(t.type):''}${t.owner?' · '+esc(t.owner):''}${overdue?' · <b>overdue '+diff(t.due, today)+'d</b>':''}<br>` +
     `<span class="mono">${short(t.start)} → ${short(t.due)} · ${n} day${n===1?'':'s'}</span>` +
     (t.notes ? `<br>${esc(t.notes)}` : '');
   tip.hidden = false;
