@@ -359,7 +359,7 @@ function render(){
 }
 
 function renderSummary(all){
-  $('#win').textContent = `${short(winStart)} – ${short(addDays(winStart, DAYS-1))} · 1 week back, ${FWD/7} ahead, rolling`;
+  $('#win').textContent = `${short(winStart)} – ${short(addDays(winStart, DAYS-1))};
   const open = all.filter(t=>t.status!=='done');
   const doing = open.filter(t=>t.status==='doing').length;
   const blocked = open.filter(t=>t.status==='blocked').length;
