@@ -252,7 +252,7 @@ button,input,select,textarea{font:inherit;color:inherit}
     <div class="ed-head"><strong id="ed-label">New task</strong><span id="ed-sub"></span></div>
     <div class="ed-grid">
       <label class="field title">Task<input id="f-title" maxlength="140" autocomplete="off"></label>
-      <label class="field title">Objective<input id="f-objective" maxlength="200" autocomplete="off" placeholder="What done looks like"></label>
+      <label class="field title">Objective<input id="f-objective" maxlength="200" autocomplete="off" placeholder=""></label>
       <label class="field">Type<select id="f-type"><option value="">None</option></select></label>
       <label class="field">Owner<input id="f-owner" list="owners" maxlength="40" autocomplete="off"></label>
       <label class="field">Status<select id="f-status">
@@ -286,7 +286,6 @@ button,input,select,textarea{font:inherit;color:inherit}
     <span><i class="sw s-done"></i>Done</span>
     <span><i class="sw overdue"></i>Overdue</span>
     <span><i class="sw now-line"></i>Today</span>
-    <span>Weekends shaded. Click a task to edit it. Tick the box to mark it done.</span>
   </div>
 </div>
 <div class="tip" id="tip" hidden></div>
@@ -296,7 +295,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 <script>
 (function(){
 'use strict';
-const BACK = 7, FWD = 13 * 7, DAYS = BACK + FWD;   // 1 week back, 13 weeks ahead, rolling
+const BACK = 7, FWD = 13 * 7, DAYS = BACK + FWD;  
 const STATUS = {todo:'To do', doing:'In progress', blocked:'Blocked', done:'Done'};
 const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const $ = s => document.querySelector(s);
