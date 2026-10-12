@@ -116,6 +116,15 @@ button,input,select,textarea{font:inherit;color:inherit}
 .ed-err{font-size:13px;color:var(--critical);min-height:1em}
 @media (max-width:760px){.ed-grid{grid-template-columns:1fr 1fr}.field.title{grid-column:1 / -1}}
 
+/* team panel */
+.team-rows{display:flex;flex-direction:column;gap:8px}
+.team-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;gap:10px;align-items:center}
+.team-row .mail{font-family:var(--mono);font-size:12.5px;color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.team-row .you{font-size:10.5px;padding:1px 7px;border-radius:999px;border:1px solid var(--accent);color:var(--accent);white-space:nowrap}
+.team-row .you:empty{display:none}
+.team-rows .none{font-size:13px;color:var(--ink-2)}
+@media (max-width:560px){.team-row{grid-template-columns:1fr auto}.team-row .mail{grid-column:1 / -1}}
+
 /* board */
 .board{background:var(--surface);border:1px solid var(--hair);border-radius:8px;overflow:auto;position:relative}
 .row.hdr{position:sticky;top:0;z-index:4}
@@ -259,9 +268,21 @@ button,input,select,textarea{font:inherit;color:inherit}
     <span class="spacer"></span>
     <span class="sync" id="sync"><i></i><span>Connecting</span></span>
     <span class="who" id="who"></span>
+    <button class="btn quiet" id="b-team" title="Who has access, and their names">Team</button>
     <button class="btn quiet" id="b-pwchange" title="Change password">Password</button>
     <button class="btn quiet" id="b-logout">Sign out</button>
   </div>
+
+  <section class="editor" id="team" hidden>
+    <div class="ed-head"><strong>Team</strong><span>Everyone with a login. To add someone: Supabase → Authentication → Users → Invite user. They appear here at once; remove them there too.</span></div>
+    <div class="team-rows" id="team-rows"></div>
+    <div class="ed-hint" id="team-hint" hidden></div>
+    <div class="ed-actions">
+      <button class="btn primary" id="b-team-save">Save</button>
+      <button class="btn" id="b-team-close">Close</button>
+    </div>
+    <div class="ed-err" id="team-err"></div>
+  </section>
 
   <section class="editor" id="editor" hidden>
     <div class="ed-head"><strong id="ed-label">New task</strong><span id="ed-sub"></span></div>
@@ -338,6 +359,7 @@ const esc = s => String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<'
 let today = todayStr();
 let winStart = addDays(today, -BACK);
 let tasks = [];
+let members = [], me = null, membersReady = false;   // team list from the members table; me = my row
 let sb = null, session = null, loaded = false, live = false;
 let editingId = null, isNew = false;
 let curColW = 24;                 // px per day in the current layout; set by renderBoard
@@ -437,12 +459,14 @@ function renderSummary(all){
 }
 
 function renderFilters(all){
-  const owners = [...new Set(all.map(t=>t.owner).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+  const owners = ownerNames(all);
   if(ui.owner && !owners.includes(ui.owner)) ui.owner = '';
+  const mine = me && me.name ? me.name : '';
   const c = $('#owners-chips');
   c.innerHTML = owners.length
     ? `<span class="lbl">Owner</span><button class="chip${ui.owner?'':' on'}" data-owner="">All</button>` +
-      owners.map(o=>`<button class="chip${ui.owner===o?' on':''}" data-owner="${esc(o)}">${esc(o)}</button>`).join('')
+      (mine ? `<button class="chip${ui.owner===mine?' on':''}" data-owner="${esc(mine)}" title="${esc(mine)}">Mine</button>` : '') +
+      owners.filter(o => o !== mine).map(o=>`<button class="chip${ui.owner===o?' on':''}" data-owner="${esc(o)}">${esc(o)}</button>`).join('')
     : '';
   $('#owners').innerHTML = owners.map(o=>`<option value="${esc(o)}"></option>`).join('');
   const used = new Set(all.map(t=>t.type).filter(Boolean));
@@ -599,13 +623,14 @@ function updateHint(){
 ['change','input'].forEach(ev => { F.repeat.addEventListener(ev, updateHint); F.start.addEventListener(ev, updateHint); F.due.addEventListener(ev, updateHint); });
 function openEditor(id){
   const t = id ? tasks.map(norm).find(x=>x.id===id) : null;
+  closeTeam();
   editingId = t ? t.id : null; isNew = !t;
   $('#ed-label').textContent = t ? 'Edit task' : 'New task';
   $('#ed-sub').textContent = t && t.updatedAt ? `last saved ${new Date(t.updatedAt).toLocaleString()}${t.updatedBy ? ' by ' + t.updatedBy : ''}` : '';
   F.title.value = t ? t.title : '';
   F.objective.value = t ? t.objective : '';
   F.type.value = t ? t.type : (ui.type || '');
-  F.owner.value = t ? t.owner : (ui.owner || ui.lastOwner || '');
+  F.owner.value = t ? t.owner : (ui.owner || (me && me.name) || ui.lastOwner || '');
   F.status.value = t ? t.status : 'todo';
   F.start.value = t ? t.start : today;
   F.due.value = t ? t.due : addDays(today, 7);
@@ -636,7 +661,15 @@ function handleWriteError(e){
   if(ed.hidden) showBanner(text, true); else $('#ed-err').textContent = text;   // editor closed: the write came from the board itself
 }
 function must(res){ if(res.error) throw res.error; return res.data; }
-function meLabel(){ return session && session.user ? (session.user.email || '') : ''; }
+function myEmail(){ return session && session.user ? (session.user.email || '') : ''; }
+function meLabel(){ return (me && me.name) ? me.name : myEmail(); }
+function memberNames(){ return members.map(m => m.name).filter(Boolean); }
+function ownerNames(all){
+  // members first (in the order they were added), then names that only exist on tasks
+  const fromMembers = memberNames();
+  const legacy = [...new Set(all.map(t => t.owner).filter(o => o && !fromMembers.includes(o)))].sort((a,b)=>a.localeCompare(b));
+  return fromMembers.concat(legacy);
+}
 
 async function saveTask(){
   const title = F.title.value.trim();
@@ -667,6 +700,58 @@ async function writeDates(id, start, due){
   return writeTask(async () => { must(await sb.from('tasks').update({start_date:start, due_date:due, updated_at:new Date().toISOString(), updated_by:meLabel()}).eq('id', id)); });
 }
 
+// ---- team panel ----
+// Lists the members table (one row per login). Names are editable by anyone on the team;
+// adding or removing people happens in Supabase Auth, which fills the table through a trigger.
+const teamEl = $('#team');
+function teamDirty(){
+  return [...teamEl.querySelectorAll('input[data-id]')].some(i => { const m = members.find(x => x.id === i.dataset.id); return m && i.value.trim() !== m.name; });
+}
+function renderTeam(force){
+  if(!force && teamDirty()) return;          // never wipe names someone is typing
+  const uid = session && session.user ? session.user.id : null;
+  const rows = $('#team-rows');
+  if(!membersReady){ rows.innerHTML = `<div class="none">Team list not set up yet. Run supabase/members.sql in the Supabase SQL editor, then reload.</div>`; return; }
+  if(!members.length){ rows.innerHTML = `<div class="none">No logins yet.</div>`; return; }
+  rows.innerHTML = members.map(m =>
+    `<div class="team-row"><span class="mail" title="${esc(m.email)}">${esc(m.email)}</span>` +
+    `<input data-id="${esc(m.id)}" value="${esc(m.name)}" placeholder="Name as it appears on tasks" maxlength="40" autocomplete="off" aria-label="Name for ${esc(m.email)}">` +
+    `<span class="you">${m.id === uid ? 'you' : ''}</span></div>`).join('');
+}
+function openTeam(hint){
+  closeEditor();
+  $('#team-err').textContent = '';
+  const h = $('#team-hint'); h.textContent = hint || ''; h.hidden = !hint;
+  renderTeam(true);
+  teamEl.hidden = false;
+  teamEl.scrollIntoView({block:'nearest'});
+  const uid = session && session.user ? session.user.id : null;
+  const mine = teamEl.querySelector(`input[data-id="${uid}"]`); if(mine && !mine.value) mine.focus();
+}
+function closeTeam(){ teamEl.hidden = true; }
+async function saveTeam(){
+  const changes = [...teamEl.querySelectorAll('input[data-id]')]
+    .map(i => ({ id:i.dataset.id, name:i.value.trim(), prev:(members.find(x => x.id === i.dataset.id) || {}).name }))
+    .filter(c => c.name !== c.prev);
+  if(!changes.length){ closeTeam(); return; }
+  const names = changes.map(c => c.name).filter(Boolean);
+  const dup = names.find((n, i) => names.indexOf(n) !== i) || names.find(n => members.some(m => m.name === n && !changes.some(c => c.id === m.id)));
+  if(dup){ $('#team-err').textContent = `Two people cannot share the name "${dup}".`; return; }
+  setSync('saving');
+  try {
+    for(const c of changes) must(await sb.from('members').update({name:c.name}).eq('id', c.id));
+    closeTeam(); await load();
+  } catch(e){
+    console.error('team save failed', e);
+    const m = (e && e.message) ? e.message : '';
+    $('#team-err').textContent = /row-level security|permission|JWT|not authorized/i.test(m) ? 'Not allowed. Your login may have expired: sign out and back in.' : 'Could not save. ' + (m || 'Check your connection and try again.');
+  } finally { setSync(); }
+}
+$('#b-team').addEventListener('click', () => { if(teamEl.hidden) openTeam(''); else closeTeam(); });
+$('#b-team-save').addEventListener('click', saveTeam);
+$('#b-team-close').addEventListener('click', closeTeam);
+teamEl.addEventListener('keydown', e => { if(e.key === 'Enter'){ e.preventDefault(); saveTeam(); } if(e.key === 'Escape') closeTeam(); });
+
 // ---- data ----
 let loading = null, migrated = false;
 async function load(){
@@ -674,8 +759,25 @@ async function load(){
   let again = false;
   loading = (async () => {
     try {
-      const rows = must(await sb.from('tasks').select('*').order('start_date', {ascending:true}));
+      const [tr, mr] = await Promise.all([
+        sb.from('tasks').select('*').order('start_date', {ascending:true}),
+        sb.from('members').select('*').order('created_at', {ascending:true})
+      ]);
+      const rows = must(tr);
       tasks = rows.map(fromRow); loaded = true; live = true; setSync(); if(bannerKind === 'err') showBanner('');
+      if(mr.error){
+        // members table not created yet: the board still works, without the team list
+        members = []; me = null; membersReady = false;
+        if(!bannerKind) showBanner('Team list not set up yet: run supabase/members.sql in the Supabase SQL editor, then reload.');
+      } else {
+        members = mr.data.map(r => ({ id:r.id, email:r.email || '', name:r.name || '', createdAt:r.created_at }));
+        const uid = session && session.user ? session.user.id : null;
+        me = members.find(m => m.id === uid) || null;
+        const first = !membersReady; membersReady = true;
+        if(first && me && !me.name && $('#team').hidden) openTeam('Set your name so tasks can be assigned to you and "Mine" works.');
+        else if(!$('#team').hidden) renderTeam(false);
+      }
+      $('#who').textContent = meLabel();
       if(!migrated && tasks.length && tasks.some(t => t.position == null)){ migrated = true; await renumberAll(); again = true; }
     } catch(e){
       console.error('load failed', e); setSync('err');
@@ -691,6 +793,7 @@ function subscribe(){
   if(channel) return;
   channel = sb.channel('tasks-live')
     .on('postgres_changes', {event:'*', schema:'public', table:'tasks'}, () => { load(); })
+    .on('postgres_changes', {event:'*', schema:'public', table:'members'}, () => { load(); })
     .subscribe();
 }
 function unsubscribe(){ if(channel){ sb.removeChannel(channel); channel = null; } }
@@ -705,7 +808,7 @@ async function enterBoard(){
   await load();
   subscribe();
 }
-function leaveBoard(){ entered = false; unsubscribe(); tasks = []; loaded = false; live = false; closeEditor(); show('auth'); $('#l-msg').textContent = ''; $('#l-pass').value = ''; }
+function leaveBoard(){ entered = false; unsubscribe(); tasks = []; members = []; me = null; membersReady = false; loaded = false; live = false; closeEditor(); closeTeam(); show('auth'); $('#l-msg').textContent = ''; $('#l-pass').value = ''; }
 
 $('#login-form').addEventListener('submit', async e => {
   e.preventDefault();

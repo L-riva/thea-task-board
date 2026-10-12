@@ -7,13 +7,14 @@ Files:
 1. `index.html` – the whole app (login screen, task list, Gantt, editor).
 2. `config.js` – your Supabase project URL and anon key. The only file you edit.
 3. `supabase/schema.sql` – creates the `tasks` table and the access rules. Run once.
+4. `supabase/members.sql` – creates the `members` table (one row per login, filled automatically on invite) that powers the Team panel. Run once, after `schema.sql`.
 
 ## Setup (about 45 minutes, once)
 
 ### A. Supabase (the database and the logins)
 
 1. Go to supabase.com, sign in with GitHub, click **New project**. Name it `thea-task-board`, pick a strong database password (you won't need it day to day) and a region near you. Wait for it to finish provisioning.
-2. **SQL Editor → New query**. Paste the whole of `supabase/schema.sql`, click **Run**. It should say "Success".
+2. **SQL Editor → New query**. Paste the whole of `supabase/schema.sql`, click **Run**. It should say "Success". Then do the same with `supabase/members.sql`.
 3. **Authentication → Providers → Email**: keep Email enabled, turn **off** "Allow new users to sign up". This closes the door to anyone you didn't invite. Leave "Confirm email" on.
 4. **Authentication → URL Configuration**: set **Site URL** to your GitHub Pages address (you'll get it in step B4, e.g. `https://<your-github-user>.github.io/thea-task-board/`). Add the same address under **Redirect URLs**. Invite and password-reset emails send people here.
 5. **Project Settings → API** (called "Data API" or "API Keys" in newer dashboards): copy the **Project URL** and the **anon public** key (on newer projects it's called the *publishable* key and starts with `sb_publishable_`). Paste both into `config.js`.
@@ -29,20 +30,24 @@ Files:
 
 1. Supabase → **Authentication → Users → Add user → Invite user**. Enter the teammate's email.
 2. They get an email with a link. The link opens the board and asks them to set a password. From then on they sign in with email and password.
-3. To remove someone: **Authentication → Users → delete the user**. They can no longer read or write anything.
-4. Invite yourself the same way, or use **Add user → Create new user** with a password you choose.
+3. The moment you invite someone they appear in the board's **Team** panel. Give them a name there (or they do it on first sign-in). The name is what goes in the Owner field, so use the spelling already on tasks.
+4. To remove someone: **Authentication → Users → delete the user**. They can no longer read or write anything and drop off the Team panel.
+5. Invite yourself the same way, or use **Add user → Create new user** with a password you choose.
+
+Already running the board from before `members.sql` existed? Run it once; it picks up everyone already invited.
 
 ## Day to day
 
 1. Open the page, sign in. Everyone sees the same list; changes from teammates appear within a few seconds.
-2. **+ Add task** opens the editor: title, type, owner, status, start, due, notes. Enter saves, Esc cancels. The type list (Sales, Client, Product, …) lives in `config.js`; edit it there.
-3. **Group by** (toolbar) switches the board to sections per type or per owner, each with its open count; click a section header to collapse it. Type chips filter the board the same way owner chips do.
-4. Click any task (its row or its bar) to edit it. **Delete** asks once to confirm.
-5. Drag a bar to change its dates without opening the editor: the right edge moves Due, the left edge moves Start, the middle shifts the whole task. It snaps to whole days, saves when you let go, and a banner offers **Undo** for 10 seconds. Repeating tasks (one small bar per occurrence) still change their dates in the editor.
-6. Tick the checkbox to mark a task done; untick to reopen it.
-7. The Gantt always shows 1 week back to 13 weeks ahead from today and moves on its own. Tasks outside the window stay in the list with a "starts 8 Dec →" or "← ended 12 Sep" marker.
-8. Filters (owner chips, "Hide done") are per person and remembered on that browser only.
-9. **Password** in the toolbar changes your password. **Forgot password** on the sign-in screen emails a reset link.
+2. **+ Add task** opens the editor: title, type, owner, status, start, due, notes. Enter saves, Esc cancels. The type list (Sales, Client, Product, …) lives in `config.js`; edit it there. Owner offers the team's names and defaults to you; you can still type any other name for someone without a login.
+3. **Team** (toolbar) shows everyone with a login and lets anyone fix a name. The **Mine** chip filters to your tasks; "last saved by" shows names instead of emails.
+4. **Group by** (toolbar) switches the board to sections per type or per owner, each with its open count; click a section header to collapse it. Type chips filter the board the same way owner chips do.
+5. Click any task (its row or its bar) to edit it. **Delete** asks once to confirm.
+6. Drag a bar to change its dates without opening the editor: the right edge moves Due, the left edge moves Start, the middle shifts the whole task. It snaps to whole days, saves when you let go, and a banner offers **Undo** for 10 seconds. Repeating tasks (one small bar per occurrence) still change their dates in the editor.
+7. Tick the checkbox to mark a task done; untick to reopen it.
+8. The Gantt always shows 1 week back to 13 weeks ahead from today and moves on its own. Tasks outside the window stay in the list with a "starts 8 Dec →" or "← ended 12 Sep" marker.
+9. Filters (owner chips, "Hide done") are per person and remembered on that browser only.
+10. **Password** in the toolbar changes your password. **Forgot password** on the sign-in screen emails a reset link.
 
 ## Things to know
 
