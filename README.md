@@ -1,6 +1,6 @@
 # Thea Task Board
 
-A shared to-do list with a rolling 7-week Gantt view (1 week back, 6 weeks forward). One static page, hosted on GitHub Pages, with tasks stored in a Supabase database behind an email login.
+A shared to-do list with a rolling 14-week Gantt view (1 week back, 13 weeks forward). One static page, hosted on GitHub Pages, with tasks stored in a Supabase database behind an email login.
 
 Files:
 
@@ -36,12 +36,13 @@ Files:
 
 1. Open the page, sign in. Everyone sees the same list; changes from teammates appear within a few seconds.
 2. **+ Add task** opens the editor: title, type, owner, status, start, due, notes. Enter saves, Esc cancels. The type list (Sales, Client, Product, …) lives in `config.js`; edit it there.
-8. **Group by** (toolbar) switches the board to sections per type or per owner, each with its open count; click a section header to collapse it. Type chips filter the board the same way owner chips do.
-3. Click any task (its row or its bar) to edit it. **Delete** asks once to confirm.
-4. Tick the checkbox to mark a task done; untick to reopen it.
-5. The Gantt always shows 1 week back to 6 weeks ahead from today and moves on its own. Tasks outside the window stay in the list with a "starts 8 Dec →" or "← ended 12 Sep" marker.
-6. Filters (owner chips, "Hide done") are per person and remembered on that browser only.
-7. **Password** in the toolbar changes your password. **Forgot password** on the sign-in screen emails a reset link.
+3. **Group by** (toolbar) switches the board to sections per type or per owner, each with its open count; click a section header to collapse it. Type chips filter the board the same way owner chips do.
+4. Click any task (its row or its bar) to edit it. **Delete** asks once to confirm.
+5. Drag a bar to change its dates without opening the editor: the right edge moves Due, the left edge moves Start, the middle shifts the whole task. It snaps to whole days, saves when you let go, and a banner offers **Undo** for 10 seconds. Repeating tasks (one small bar per occurrence) still change their dates in the editor.
+6. Tick the checkbox to mark a task done; untick to reopen it.
+7. The Gantt always shows 1 week back to 13 weeks ahead from today and moves on its own. Tasks outside the window stay in the list with a "starts 8 Dec →" or "← ended 12 Sep" marker.
+8. Filters (owner chips, "Hide done") are per person and remembered on that browser only.
+9. **Password** in the toolbar changes your password. **Forgot password** on the sign-in screen emails a reset link.
 
 ## Things to know
 

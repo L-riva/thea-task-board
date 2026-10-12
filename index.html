@@ -178,6 +178,13 @@ button,input,select,textarea{font:inherit;color:inherit}
 .bar.clip-l{border-top-left-radius:0;border-bottom-left-radius:0}
 .bar.clip-r{border-top-right-radius:0;border-bottom-right-radius:0}
 .bar:hover{filter:brightness(1.06)}
+/* drag a bar: edges change start / due, the middle shifts both; whole days only */
+.bar:not(.occ){touch-action:pan-y;user-select:none;-webkit-user-select:none}
+.bar:not(.occ)::before,.bar:not(.occ)::after{content:"";position:absolute;top:0;bottom:0;width:min(10px,33%);cursor:ew-resize}
+.bar:not(.occ)::before{left:0}.bar:not(.occ)::after{right:0}
+.bar.clip-l::before,.bar.clip-r::after{display:none}
+.bar.moving{cursor:grabbing;filter:brightness(1.06);box-shadow:0 2px 10px rgba(0,0,0,.28);z-index:3}
+.banner .link{margin-left:10px;font-weight:500}
 .edge{position:absolute;top:50%;transform:translateY(-50%);font-family:var(--mono);font-size:11px;color:var(--ink-3);white-space:nowrap;cursor:pointer}
 .edge.l{left:6px}.edge.r{right:6px}
 .empty{padding:32px 16px;color:var(--ink-2);font-size:14px;position:sticky;left:0}
@@ -333,6 +340,9 @@ let winStart = addDays(today, -BACK);
 let tasks = [];
 let sb = null, session = null, loaded = false, live = false;
 let editingId = null, isNew = false;
+let curColW = 24;                 // px per day in the current layout; set by renderBoard
+let bd = null, renderPending = false, swallowClick = false;   // bar drag in progress
+let bannerKind = '';
 const CFG_COLS = Object.assign({task:180, objective:160, type:92, owner:64}, (window.TTB_CONFIG && window.TTB_CONFIG.columns) || {});
 let ui = { hideDone:false, owner:'', type:'', groupBy:'', collapsed:[], lastOwner:'', cols:{...CFG_COLS} };
 try {
@@ -389,11 +399,21 @@ function setSync(state, text){
   const labels = {live:'Live', saving:'Saving…', err:'Connection problem', '':'Connecting'};
   el.querySelector('span').textContent = text || labels[cls] || '';
 }
-function showBanner(msg, warn){ const b=$('#banner'); b.textContent=msg||''; b.className='banner'+(warn?' warn':''); b.hidden=!msg; }
+function showBanner(msg, warn){ const b=$('#banner'); clearTimeout(undoTimer); b.textContent=msg||''; b.className='banner'+(warn?' warn':''); b.hidden=!msg; bannerKind = msg ? (warn ? 'err' : 'info') : ''; }
+let undoTimer = null;
+function showUndo(text, fn){
+  // a banner with an Undo link; goes away on its own after 10 s
+  const b = $('#banner'); clearTimeout(undoTimer);
+  b.className = 'banner'; b.innerHTML = `${esc(text)}<button class="link" id="b-undo" type="button">Undo</button>`; b.hidden = false; bannerKind = 'undo';
+  $('#b-undo').addEventListener('click', async () => { clearTimeout(undoTimer); b.hidden = true; bannerKind = ''; await fn(); });
+  undoTimer = setTimeout(() => { if(bannerKind === 'undo'){ b.hidden = true; bannerKind = ''; } }, 10000);
+}
 function show(which){ ['auth','pw','app'].forEach(id => $('#'+id).hidden = id !== which); }
 
 // ---- render ----
 function render(){
+  if(bd){ renderPending = true; return; }   // never rebuild the board under a bar being dragged
+  renderPending = false;
   const all = tasks.map(norm);
   renderSummary(all);
   renderFilters(all);
@@ -455,6 +475,7 @@ function renderBoard(all){
   board.style.maxHeight = Math.max(260, window.innerHeight - board.getBoundingClientRect().top - 16) + 'px';
   const avail = board.clientWidth - labelW - 2;
   const colW = Math.max(18, Math.floor(avail / DAYS));
+  curColW = colW;
   board.style.setProperty('--colw', colW+'px');
   board.style.setProperty('--labelw', labelW+'px');
   board.style.setProperty('--days', String(DAYS));
@@ -609,8 +630,10 @@ async function writeTask(fn){
 function handleWriteError(e){
   console.error('write failed', e);
   const m = (e && e.message) ? e.message : '';
-  if(/row-level security|permission|JWT|not authorized/i.test(m)) $('#ed-err').textContent = 'Not allowed. Your login may have expired: sign out and back in.';
-  else $('#ed-err').textContent = 'Could not save. ' + (m ? m : 'Check your connection and try again.');
+  const text = /row-level security|permission|JWT|not authorized/i.test(m)
+    ? 'Not allowed. Your login may have expired: sign out and back in.'
+    : 'Could not save. ' + (m ? m : 'Check your connection and try again.');
+  if(ed.hidden) showBanner(text, true); else $('#ed-err').textContent = text;   // editor closed: the write came from the board itself
 }
 function must(res){ if(res.error) throw res.error; return res.data; }
 function meLabel(){ return session && session.user ? (session.user.email || '') : ''; }
@@ -640,6 +663,9 @@ async function toggleDone(id, checked){
   const ok = await writeTask(async () => { must(await sb.from('tasks').update({status, updated_at:new Date().toISOString(), updated_by:meLabel()}).eq('id', id)); });
   if(ok) await load(); else render();
 }
+async function writeDates(id, start, due){
+  return writeTask(async () => { must(await sb.from('tasks').update({start_date:start, due_date:due, updated_at:new Date().toISOString(), updated_by:meLabel()}).eq('id', id)); });
+}
 
 // ---- data ----
 let loading = null, migrated = false;
@@ -649,7 +675,7 @@ async function load(){
   loading = (async () => {
     try {
       const rows = must(await sb.from('tasks').select('*').order('start_date', {ascending:true}));
-      tasks = rows.map(fromRow); loaded = true; live = true; setSync(); showBanner('');
+      tasks = rows.map(fromRow); loaded = true; live = true; setSync(); if(bannerKind === 'err') showBanner('');
       if(!migrated && tasks.length && tasks.some(t => t.position == null)){ migrated = true; await renumberAll(); again = true; }
     } catch(e){
       console.error('load failed', e); setSync('err');
@@ -733,6 +759,7 @@ $('#types-chips').addEventListener('click', e => {
   render();
 });
 $('#board').addEventListener('click', e => {
+  if(swallowClick){ swallowClick = false; return; }   // the click that ends a bar drag
   if(e.target.closest('.drag, .rz')) return;
   const grp = e.target.closest('.row.grp');
   if(grp){
@@ -835,6 +862,7 @@ $('#board').addEventListener('dblclick', e => {
 // tooltip
 const tip = $('#tip');
 $('#board').addEventListener('mouseover', e => {
+  if(bd) return;
   const bar = e.target.closest('.bar, .edge'); if(!bar) return;
   const t = tasks.map(norm).find(x=>x.id===bar.dataset.id); if(!t) return;
   const n = diff(t.start, t.due) + 1;
@@ -852,7 +880,69 @@ $('#board').addEventListener('mouseover', e => {
   let y = r.top - hh - 8; if(y < 8) y = r.bottom + 8;
   tip.style.left = x+'px'; tip.style.top = y+'px';
 });
-$('#board').addEventListener('mouseout', e => { if(e.target.closest('.bar, .edge')) tip.hidden = true; });
+$('#board').addEventListener('mouseout', e => { if(!bd && e.target.closest('.bar, .edge')) tip.hidden = true; });
+
+// ---- drag a bar to change its dates ----
+// Left edge moves Start, right edge moves Due, the middle shifts both. Snaps to whole days.
+// Saves when the pointer is released and offers Undo for 10 s. Repeating tasks (one bar per occurrence) are not draggable.
+function barGeom(si, ei){
+  const cs = Math.max(si, 0), ce = Math.min(ei, DAYS - 1);
+  return { left: cs * curColW + 1, width: (ce - cs + 1) * curColW - 2, clipL: si < 0, clipR: ei > DAYS - 1 };
+}
+function previewBar(){
+  const g = barGeom(diff(winStart, bd.ns), diff(winStart, bd.nd));
+  const b = bd.bar;
+  b.style.left = g.left + 'px'; b.style.width = Math.max(g.width, 4) + 'px';
+  b.classList.toggle('clip-l', g.clipL); b.classList.toggle('clip-r', g.clipR);
+  const n = diff(bd.ns, bd.nd) + 1;
+  tip.innerHTML = `<b>${esc(bd.title)}</b><br><span class="mono">${short(bd.ns)} → ${short(bd.nd)} · ${n} day${n === 1 ? '' : 's'}</span>`;
+  tip.hidden = false;
+  const r = b.getBoundingClientRect(); const w = tip.offsetWidth, hh = tip.offsetHeight;
+  const x = Math.min(Math.max(8, r.left + r.width / 2 - w / 2), window.innerWidth - w - 8);
+  let y = r.top - hh - 8; if(y < 8) y = r.bottom + 8;
+  tip.style.left = x + 'px'; tip.style.top = y + 'px';
+}
+$('#board').addEventListener('pointerdown', e => {
+  if(rz || bd || (e.pointerType === 'mouse' && e.button !== 0)) return;
+  const bar = e.target.closest('.bar'); if(!bar || bar.classList.contains('occ')) return;
+  const t = tasks.map(norm).find(x => x.id === bar.dataset.id); if(!t || t.repeat) return;
+  const r = bar.getBoundingClientRect(); const x = e.clientX - r.left;
+  const edge = Math.min(10, Math.floor(r.width / 3));
+  const clipL = bar.classList.contains('clip-l'), clipR = bar.classList.contains('clip-r');
+  const mode = (x < edge && !clipL) ? 'l' : (x > r.width - edge && !clipR) ? 'r' : 'm';
+  bd = { id:t.id, bar, mode, x0:e.clientX, pid:e.pointerId, start:t.start, due:t.due, ns:t.start, nd:t.due, title:t.title, moved:false };
+  try { bar.setPointerCapture(e.pointerId); } catch(_){}
+});
+$('#board').addEventListener('pointermove', e => {
+  if(!bd || e.pointerId !== bd.pid) return;
+  const dx = e.clientX - bd.x0;
+  if(!bd.moved){ if(Math.abs(dx) < 4) return; bd.moved = true; bd.bar.classList.add('moving'); }
+  const dd = Math.round(dx / curColW);
+  let ns = bd.start, nd = bd.due;
+  if(bd.mode === 'l'){ ns = addDays(bd.start, dd); if(ns > nd) ns = nd; }
+  else if(bd.mode === 'r'){ nd = addDays(bd.due, dd); if(nd < ns) nd = ns; }
+  else { ns = addDays(bd.start, dd); nd = addDays(bd.due, dd); }
+  if(diff(winStart, nd) < 0 || diff(winStart, ns) > DAYS - 1) return;   // keep the bar inside the window while dragging
+  if(ns === bd.ns && nd === bd.nd) return;
+  bd.ns = ns; bd.nd = nd;
+  previewBar();
+});
+async function endBarDrag(e, cancel){
+  if(!bd || (e && e.pointerId !== bd.pid)) return;
+  const d = bd; bd = null;
+  try { d.bar.releasePointerCapture(d.pid); } catch(_){}
+  d.bar.classList.remove('moving'); tip.hidden = true;
+  if(!d.moved){ if(renderPending) render(); return; }      // a plain click: the click handler opens the editor
+  swallowClick = true; setTimeout(() => { swallowClick = false; }, 400);
+  const changed = !cancel && (d.ns !== d.start || d.nd !== d.due);
+  if(!changed){ render(); return; }                        // nothing to save: put the bar back
+  const ok = await writeDates(d.id, d.ns, d.nd);
+  if(!ok){ render(); return; }
+  await load();
+  showUndo(`${d.title}: ${short(d.ns)} → ${short(d.nd)}`, async () => { if(await writeDates(d.id, d.start, d.due)) await load(); });
+}
+$('#board').addEventListener('pointerup', e => { endBarDrag(e, false); });
+$('#board').addEventListener('pointercancel', e => { endBarDrag(e, true); });
 
 let rt; window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(render, 150); });
 setInterval(() => { const t = todayStr(); if(t !== today){ today = t; winStart = addDays(today, -BACK); render(); } }, 60000);
